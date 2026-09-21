@@ -1,21 +1,13 @@
-// خدمة "التحقق المعكوس عبر واتساب" — بلا أي تكلفة إرسال، حيت الزبون هو اللي كيبعث،
-// ماشي احنا. الاستقبال عبر WhatsApp Cloud API مجاني بالكامل، بلا حد على العدد.
+// خدمة "التحقق المعكوس عبر واتساب" — دابا كتخزن فجدول phone_verifications
+// الحقيقي فقاعدة البيانات، بدل الـMap المؤقتة اللي كانت كتضيع عند إعادة التشغيل.
 
 const crypto = require("crypto");
-
-// تخزين مؤقت للرموز (فالإنتاج الحقيقي: استعمل Redis أو جدول فقاعدة البيانات
-// بدل هاد الـMap، حيت هادي كتضيع إلا عاود السيرفر التشغيل)
-const pendingCodes = new Map(); // phone -> { code, expiresAt }
+const supabase = require("../lib/supabaseClient");
 
 const CODE_TTL_MS = 5 * 60 * 1000; // 5 دقايق صلاحية
 
-function generateVerificationCode(phone) {
-  const code = crypto.randomInt(1000, 9999).toString(); // رمز 4 أرقام
-  pendingCodes.set(normalizePhone(phone), {
-    code,
-    expiresAt: Date.now() + CODE_TTL_MS,
-  });
-  return code;
+function normalizePhone(phone) {
+  return phone.replace(/\D/g, "").replace(/^212/, "0").replace(/^0/, "");
 }
 
 function buildWhatsAppLink(businessPhone, code) {
@@ -23,23 +15,65 @@ function buildWhatsAppLink(businessPhone, code) {
   return `https://wa.me/${businessPhone}?text=${text}`;
 }
 
-function normalizePhone(phone) {
-  // كيحيد كلشي غير الأرقام، باش "0612345678" و"+212612345678" يتقارنو صح
-  return phone.replace(/\D/g, "").replace(/^212/, "0").replace(/^0/, "");
+// كتولد رمز جديد وتخزنو فقاعدة البيانات
+async function generateVerificationCode(phone) {
+  const code = crypto.randomInt(1000, 9999).toString();
+  const normalized = normalizePhone(phone);
+  const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
+
+  const { error } = await supabase
+    .from("phone_verifications")
+    .insert({ phone: normalized, code, expires_at: expiresAt, verified: false });
+
+  if (error) throw new Error(`فشل تخزين رمز التحقق: ${error.message}`);
+  return code;
 }
 
 // كتستدعى من الـwebhook ملي توصل رسالة جديدة من واتساب
-function verifyIncomingMessage(fromPhone, messageText) {
+async function verifyIncomingMessage(fromPhone, messageText) {
   const normalized = normalizePhone(fromPhone);
-  const pending = pendingCodes.get(normalized);
-  if (!pending) return { verified: false, reason: "no_pending_code" };
-  if (Date.now() > pending.expiresAt) {
-    pendingCodes.delete(normalized);
-    return { verified: false, reason: "expired" };
+
+  // كنجيبو آخر رمز مازال صالح لهاد الرقم
+  const { data, error } = await supabase
+    .from("phone_verifications")
+    .select("id, code, expires_at, verified")
+    .eq("phone", normalized)
+    .eq("verified", false)
+    .gte("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(`خطأ فقراءة رمز التحقق: ${error.message}`);
+  if (!data) return { verified: false, reason: "no_pending_code" };
+
+  const matches = messageText.includes(data.code);
+  if (matches) {
+    await supabase.from("phone_verifications").update({ verified: true }).eq("id", data.id);
   }
-  const matches = messageText.includes(pending.code);
-  if (matches) pendingCodes.delete(normalized); // رمز يستعمل مرة وحدة بس
   return { verified: matches, reason: matches ? "ok" : "code_mismatch" };
 }
 
-module.exports = { generateVerificationCode, buildWhatsAppLink, verifyIncomingMessage, normalizePhone };
+// كتستعمل من الـAPI (verifyPhone.js) باش تشوف واش الزبون تحقق ولا لا
+async function checkVerificationStatus(phone) {
+  const normalized = normalizePhone(phone);
+  const { data, error } = await supabase
+    .from("phone_verifications")
+    .select("verified")
+    .eq("phone", normalized)
+    .eq("verified", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(`خطأ فقراءة حالة التحقق: ${error.message}`);
+  return !!data;
+}
+
+module.exports = {
+  generateVerificationCode,
+  buildWhatsAppLink,
+  verifyIncomingMessage,
+  checkVerificationStatus,
+  normalizePhone,
+};
