@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { fetchCars, createBooking } from "./api";
+import { fetchCars, createBooking, fetchPendingBookings, confirmBooking } from "./api";
 
 // قاعدة البيانات الحقيقية دابا فيها غير الحقول الأساسية (10)، بينما التطبيق كيتوقع
 // شكل أغنى بزاف (30+ حقل: صور، مراجعات، تفاصيل تأمين...) بنيناه وقت التصميم التجريبي.
@@ -9020,6 +9020,36 @@ function AgencyDashboard({ cars, onFuelChange, onToggleMaintenance, onSeasonalCh
     setCalledDriverId(id);
     setTimeout(() => setCalledDriverId(null), 2200);
   };
+
+  // الحجوزات الحقيقية المعلقة (فانتظار تأكيد الوكالة بعد المكالمة الهاتفية).
+  // TEST_AGENCY_ID مؤقت — بلا نظام تسجيل دخول حقيقي للوكالات بعد، كل الوكالات
+  // كتشوف نفس الوكالة التجريبية اللي بنيناها وقت الاختبار. ملي يبنى تسجيل الدخول
+  // الحقيقي للوكالة، هادشي غيتبدل بـ agency_id ديال الوكالة المسجلة فعليا.
+  const TEST_AGENCY_ID = "11111111-1111-1111-1111-111111111111";
+  const [realPendingBookings, setRealPendingBookings] = useState([]);
+  const [pendingBookingsLoading, setPendingBookingsLoading] = useState(true);
+  const [confirmingBookingId, setConfirmingBookingId] = useState(null);
+
+  const loadPendingBookings = () => {
+    setPendingBookingsLoading(true);
+    fetchPendingBookings(TEST_AGENCY_ID)
+      .then(setRealPendingBookings)
+      .catch((err) => console.error("فشل جلب الحجوزات المعلقة:", err))
+      .finally(() => setPendingBookingsLoading(false));
+  };
+
+  useEffect(() => {
+    loadPendingBookings();
+  }, []);
+
+  const handleConfirmBooking = (bookingId) => {
+    setConfirmingBookingId(bookingId);
+    confirmBooking(bookingId)
+      .then(() => setRealPendingBookings((list) => list.filter((b) => b.id !== bookingId)))
+      .catch((err) => console.error("فشل تأكيد الحجز:", err))
+      .finally(() => setConfirmingBookingId(null));
+  };
+
   const stats = [
     { label: t("occupancyRate"), value: "78%", icon: TrendingUp },
     { label: t("monthlyRevenue"), value: "24,600", suffix: "د.م", icon: Wallet },
@@ -9047,6 +9077,40 @@ function AgencyDashboard({ cars, onFuelChange, onToggleMaintenance, onSeasonalCh
             </div>
           </div>
           <p className="text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>{t("agencyDashboardWelcome")}</p>
+        </div>
+      </div>
+
+      <div className="px-5 mt-4">
+        <div className="rounded-2xl p-4" style={{ background: COLOR.white, border: `1px solid ${COLOR.sandDeep}` }}>
+          <div className="flex items-center justify-between mb-2.5">
+            <h3 className="font-bold text-sm" style={{ color: COLOR.clay }}>حجوزات حقيقية — فانتظار التأكيد</h3>
+            <button onClick={loadPendingBookings} className="text-xs font-bold" style={{ color: COLOR.indigo }}>تحديث</button>
+          </div>
+          {pendingBookingsLoading ? (
+            <p className="text-xs" style={{ color: COLOR.clayFaint }}>جاري التحميل...</p>
+          ) : realPendingBookings.length === 0 ? (
+            <p className="text-xs" style={{ color: COLOR.clayFaint }}>ماكاينش حجوزات فانتظار التأكيد دابا</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {realPendingBookings.map((b) => (
+                <div key={b.id} className="rounded-xl p-3" style={{ background: COLOR.sand }}>
+                  <div className="flex justify-between text-xs mb-1">
+                    <span style={{ color: COLOR.clay }}>هاتف الزبون: {b.customer_phone}</span>
+                    <span style={{ color: COLOR.clayFaint }}>{b.total_price} د.م</span>
+                  </div>
+                  <div className="text-xs mb-2" style={{ color: COLOR.clayFaint }}>{b.start_date} → {b.end_date}</div>
+                  <button
+                    onClick={() => handleConfirmBooking(b.id)}
+                    disabled={confirmingBookingId === b.id}
+                    className="w-full py-2 rounded-lg text-xs font-bold"
+                    style={{ background: COLOR.indigo, color: COLOR.white, opacity: confirmingBookingId === b.id ? 0.6 : 1 }}
+                  >
+                    {confirmingBookingId === b.id ? "جاري التأكيد..." : "تأكيد الحجز (بعد المكالمة الهاتفية)"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
