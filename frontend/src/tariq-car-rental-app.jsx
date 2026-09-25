@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useContext } from "react";
-import { fetchCars } from "./api";
+import { fetchCars, createBooking } from "./api";
 
 // قاعدة البيانات الحقيقية دابا فيها غير الحقول الأساسية (10)، بينما التطبيق كيتوقع
 // شكل أغنى بزاف (30+ حقل: صور، مراجعات، تفاصيل تأمين...) بنيناه وقت التصميم التجريبي.
@@ -9,6 +9,7 @@ import { fetchCars } from "./api";
 function mapApiCarToAppShape(apiCar) {
   return {
     id: apiCar.id,
+    agency_id: apiCar.agency_id, // خاصنا نحتفظو بيه لخلق حجز حقيقي بعدين
     name: apiCar.name,
     agency: apiCar.agencies?.name || "وكالة",
     city: apiCar.city,
@@ -10075,6 +10076,8 @@ export default function TariqApp() {
   const [loyaltyPoints, setLoyaltyPoints] = useState(140);
   const [pendingPoints, setPendingPoints] = useState(0);
   const [paymentInfo, setPaymentInfo] = useState(null);
+  const [realBookingId, setRealBookingId] = useState(null);
+  const [bookingSyncStatus, setBookingSyncStatus] = useState("idle"); // idle | saving | saved | failed
   const [tripStarted, setTripStarted] = useState(false);
   const [documentsConfirmed, setDocumentsConfirmed] = useState(false);
   const [lateNotice, setLateNotice] = useState(null); // { minutes, carId }
@@ -10381,6 +10384,38 @@ export default function TariqApp() {
                   setIsOverdue(false);
                   setLoyaltyPoints((p) => p + pendingPoints);
                   setScreen("booking");
+
+                  // خلق الحجز الحقيقي فقاعدة البيانات — بلا ما نوقف تدفق التطبيق
+                  // إلا فشل الاتصال (الزبون يكمل رحلتو محليا، ونعاود نحاول بعدين).
+                  if (selectedCar?.agency_id) {
+                    setBookingSyncStatus("saving");
+                    const today = new Date();
+                    const endDate = new Date(today);
+                    endDate.setDate(endDate.getDate() + (bookingDays || 1));
+                    const toISODate = (d) => d.toISOString().slice(0, 10);
+
+                    createBooking({
+                      car_id: selectedCar.id,
+                      agency_id: selectedCar.agency_id,
+                      customer_phone: info.driverPhone || userPhone || "0600000000",
+                      start_date: toISODate(today),
+                      end_date: toISODate(endDate),
+                      total_price: info.total,
+                      payment_method: info.paymentMethod,
+                    })
+                      .then((booking) => {
+                        setRealBookingId(booking.id);
+                        setBookingSyncStatus("saved");
+                      })
+                      .catch((err) => {
+                        console.error("فشل حفظ الحجز فقاعدة البيانات:", err);
+                        setBookingSyncStatus("failed");
+                      });
+                  } else {
+                    // سيارة من البيانات الاحتياطية الثابتة (بلا agency_id حقيقي) — ماعندهاش
+                    // مقابل حقيقي فقاعدة البيانات، فما تنعاودش نحاول نخلقو حجز ليها.
+                    setBookingSyncStatus("failed");
+                  }
                 }}
               />
             ) : screen === "return" ? (
