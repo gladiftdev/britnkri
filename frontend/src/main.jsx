@@ -1,9 +1,5 @@
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import TariqCarRentalApp from './tariq-car-rental-app'
+import React from "react";
+import { createRoot } from "react-dom/client";
+import TariqApp from "./tariq-car-rental-app.jsx";
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <TariqCarRentalApp />
-  </React.StrictMode>,
-)
+createRoot(document.getElementById("root")).render(<TariqApp />);

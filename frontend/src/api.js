@@ -1,7 +1,7 @@
 // جسر الاتصال مع الـBackend الحقيقي (Vercel + Supabase)
 // كل دالة هنا كتبدل جزء كان قبل "محاكاة" (setTimeout, بيانات ثابتة) بطلب حقيقي.
 
-const API_BASE = "https://britnkri.vercel.app";
+const API_BASE = "https://britnkri-api.vercel.app";
 
 // البحث عن السيارات المتوفرة (تبدل INITIAL_CARS الثابتة)
 export async function fetchCars(city) {
