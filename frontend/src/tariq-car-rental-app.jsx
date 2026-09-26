@@ -10131,6 +10131,17 @@ export default function TariqApp() {
     { carId: 4, car: "Dacia Logan 2024", agency: "CHOIX CAR", dates: "2 — 4 يوليوز 2026", total: "780 د.م", type: "اقتصادية", color: "أبيض" },
   ]);
   const [mode, setMode] = useState("customer");
+  // زر تبديل "لوحة الوكالة/الإدارة" ماخاصوش يبان لحتى زبون عادي — هادشي كان بس
+  // لتجربتنا احنا وقت البناء. دابا كيبان غير برابط سري خاص (؟internal=britnkri2026)،
+  // وأي زائر عادي (بلا هاد البارامتر) عمرو ماشافو خالص. هادي حماية مؤقتة لغاية
+  // ما نبنيو تسجيل دخول حقيقي للوكالات (المرحلة 1 فخارطة الطريق).
+  const [hasInternalAccess] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("internal") === "britnkri2026";
+    } catch {
+      return false;
+    }
+  });
   const [screen, setScreen] = useState("search");
   const [tab, setTab] = useState("search");
   const [selectedCarId, setSelectedCarId] = useState(INITIAL_CARS[0].id);
@@ -10269,7 +10280,7 @@ export default function TariqApp() {
         }
       `}</style>
 
-      {appStage === "app" && (
+      {appStage === "app" && hasInternalAccess && (
         <div className="flex gap-1 p-1 rounded-full mb-6" style={{ background: COLOR.white, border: `1px solid ${COLOR.sandDeep}` }}>
           {[
             { key: "customer", label: "تطبيق الزبون" },
