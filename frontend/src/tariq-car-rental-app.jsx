@@ -10236,8 +10236,38 @@ export default function TariqApp() {
 
   return (
     <LanguageContext.Provider value={{ lang, setLang }}>
-    <div className="tariq-app w-full flex flex-col items-center py-6" style={{ background: COLOR.sandDeep, minHeight: "100%" }} dir={dir}>
+    <div className="tariq-app w-full flex flex-col items-center" style={{ background: COLOR.sandDeep, minHeight: "100%" }} dir={dir}>
       <style>{FONT_IMPORT}</style>
+      <style>{`
+        /* إطار الهاتف المزخرف (الحواف السوداء + الشق العلوي) مصمم أصلا للمعاينة داخل
+           متصفح حاسوب واسع. على هاتف حقيقي، هاد الإطار كان كيخلق مربع صغير 380×760
+           وسط الشاشة بدل ما يملأها. الحل: بلا زخرفة وبعرض/طول الشاشة كاملين تحت
+           768px (هاتف حقيقي)، والزخرفة الأصلية ترجع فوق 768px (معاينة حاسوب/تابلت). */
+        .phone-frame {
+          width: 100%;
+          height: 100vh;
+          height: 100dvh;
+          background: transparent;
+          padding: 0;
+          box-shadow: none;
+          border-radius: 0;
+        }
+        .phone-frame-notch { display: none; }
+        .phone-frame-screen { border-radius: 0; width: 100%; height: 100%; }
+        @media (min-width: 768px) {
+          .tariq-app { padding-top: 24px; padding-bottom: 24px; }
+          .phone-frame {
+            width: 380px;
+            height: 760px;
+            background: ${COLOR.clay};
+            padding: 12px;
+            box-shadow: 0 30px 60px rgba(43,36,32,0.35);
+            border-radius: 24px;
+          }
+          .phone-frame-notch { display: block; }
+          .phone-frame-screen { border-radius: 16px; }
+        }
+      `}</style>
 
       {appStage === "app" && (
         <div className="flex gap-1 p-1 rounded-full mb-6" style={{ background: COLOR.white, border: `1px solid ${COLOR.sandDeep}` }}>
@@ -10258,9 +10288,9 @@ export default function TariqApp() {
         </div>
       )}
 
-      <div className="rounded-3xl relative" style={{ width: 380, height: 760, background: COLOR.clay, padding: 12, boxShadow: "0 30px 60px rgba(43,36,32,0.35)" }}>
-        <div className="rounded-full absolute" style={{ width: 110, height: 20, background: COLOR.clay, top: 22, left: "50%", transform: "translateX(-50%)", zIndex: 10 }} />
-        <div className="rounded-2xl overflow-hidden relative flex flex-col" style={{ width: "100%", height: "100%", background: COLOR.sand }}>
+      <div className="phone-frame relative">
+        <div className="phone-frame-notch rounded-full absolute" style={{ width: 110, height: 20, background: COLOR.clay, top: 22, left: "50%", transform: "translateX(-50%)", zIndex: 10 }} />
+        <div className="phone-frame-screen overflow-hidden relative flex flex-col" style={{ background: COLOR.sand }}>
           {!isOnline && <OfflineBanner />}
           <AppErrorBoundary>
           {appStage === "onboarding" ? (
