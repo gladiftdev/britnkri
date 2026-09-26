@@ -10254,6 +10254,11 @@ export default function TariqApp() {
            متصفح حاسوب واسع. على هاتف حقيقي، هاد الإطار كان كيخلق مربع صغير 380×760
            وسط الشاشة بدل ما يملأها. الحل: بلا زخرفة وبعرض/طول الشاشة كاملين تحت
            768px (هاتف حقيقي)، والزخرفة الأصلية ترجع فوق 768px (معاينة حاسوب/تابلت). */
+        /* تحت 768px (هاتف حقيقي): بلا زخرفة، ملء الشاشة بالكامل.
+           فوق 768px (تابلت/حاسوب): بدل "لعبة هاتف" (حواف سوداء غليظة + Notch وهمي)
+           كنستعملو لوحة ويب حقيقية — عرض مريح، ظل خفيف احترافي، بلا أي زخرفة
+           تحاكي هاتف حرفيا. هادشي كيبين بحال تطبيق ويب حقيقي (بحال WhatsApp Web)،
+           ماشي بحال Screenshot ديال هاتف معروض وسط الشاشة. */
         .phone-frame {
           width: 100%;
           height: 100vh;
@@ -10266,17 +10271,19 @@ export default function TariqApp() {
         .phone-frame-notch { display: none; }
         .phone-frame-screen { border-radius: 0; width: 100%; height: 100%; }
         @media (min-width: 768px) {
-          .tariq-app { padding-top: 24px; padding-bottom: 24px; }
+          .tariq-app { padding-top: 32px; padding-bottom: 32px; }
           .phone-frame {
-            width: 380px;
-            height: 760px;
-            background: ${COLOR.clay};
-            padding: 12px;
-            box-shadow: 0 30px 60px rgba(43,36,32,0.35);
-            border-radius: 24px;
+            width: 460px;
+            height: min(840px, calc(100vh - 64px));
+            background: ${COLOR.sand};
+            padding: 0;
+            box-shadow: 0 1px 3px rgba(43,36,32,0.08), 0 16px 40px rgba(43,36,32,0.16);
+            border-radius: 20px;
           }
-          .phone-frame-notch { display: block; }
-          .phone-frame-screen { border-radius: 16px; }
+          .phone-frame-screen { border-radius: 20px; }
+        }
+        @media (min-width: 1024px) {
+          .phone-frame { width: 500px; }
         }
       `}</style>
 
